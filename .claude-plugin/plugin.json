@@ -1,0 +1,11 @@
+{
+  "name": "workflow-manager",
+  "description": "Unified workflow management across Slack, Confluence, Jira, GitHub, and Google Calendar. Collect mentions, create TODOs, generate work plans, and sync progress across platforms.",
+  "version": "1.0.0",
+  "author": {
+    "name": "featuring-lonnie"
+  },
+  "repository": "https://github.com/featuring-lonnie/workflow-manager-plugin",
+  "license": "MIT",
+  "keywords": ["workflow", "slack", "jira", "confluence", "github", "calendar", "task-management", "mcp"]
+}
