@@ -270,13 +270,15 @@ timeMax: (오늘 + 7일)
 **AskUserQuestion 사용:**
 
 ```
-어떤 작업을 진행하시겠습니까?
-
-[ ] 1. {작업 제목 1}
-[ ] 2. {작업 제목 2}
-[ ] 3. {작업 제목 3}
-[ ] 모두 선택
-[ ] 건너뛰기
+질문: "어떤 작업을 진행하시겠습니까?"
+헤더: "작업 선택"
+다중선택: true
+옵션:
+  - {작업 제목 1} - {출처 요약}
+  - {작업 제목 2} - {출처 요약}
+  - {작업 제목 3} - {출처 요약}
+  - 모두 선택
+  - 건너뛰기
 ```
 
 ---
@@ -339,10 +341,13 @@ if (repoMapping[currentRepo]) {
 **AskUserQuestion 사용:**
 
 ```
+질문: "위 내용으로 Confluence 문서를 생성하시겠습니까?"
+헤더: "문서 생성"
+다중선택: false
 옵션:
-1. 승인 - 위 내용으로 문서 생성
-2. 수정 요청 - 내용 수정 후 다시 확인
-3. 취소 - 문서 생성 안 함
+  - 승인 (Recommended) - 위 내용으로 문서 생성
+  - 수정 요청 - 내용 수정 후 다시 확인
+  - 취소 - 문서 생성 안 함
 ```
 
 **수정 요청 시:**
@@ -355,9 +360,9 @@ if (repoMapping[currentRepo]) {
 **MCP 도구:** `mcp__atlassian__createConfluencePage`
 
 ```
-siteId: {atlassian.cloudId}
-spaceId: {confluence.spaceId}
-parentPageId: {confluence.parentPageId}
+siteId: {mcp.atlassian.cloudId}
+spaceId: {confluence.defaultSpaceId}
+parentPageId: {confluence.defaultParentPageId}
 title: "[WIP] {작업 제목} - {날짜}"
 bodyFormat: "atlas_doc_format"
 bodyValue: (아래 템플릿 참조)
@@ -408,18 +413,22 @@ bodyValue: (아래 템플릿 참조)
 
 ### 3.4 다음 단계 확인
 
-**AskUserQuestion 사용:**
+Confluence 문서 생성 완료 후:
 
 ```
 작업 계획이 생성되었습니다.
-
 Confluence: {page_url}
+```
 
-다음 단계로 진행하시겠습니까?
-- Jira 티켓 생성
-- (선택) 캘린더 작업 블록 생성
+**AskUserQuestion 사용:**
 
-[승인] [수정 요청] [취소]
+```
+질문: "다음 단계로 진행하시겠습니까?"
+헤더: "다음 단계"
+다중선택: false
+옵션:
+  - Jira 티켓 생성 (Recommended) - 티켓 생성 후 캘린더 블록 옵션
+  - 건너뛰기 - Confluence 문서만 생성하고 종료
 ```
 
 ---
@@ -463,10 +472,13 @@ Confluence: {page_url}
 **AskUserQuestion 사용:**
 
 ```
+질문: "위 내용으로 Jira 티켓을 생성하시겠습니까?"
+헤더: "티켓 생성"
+다중선택: false
 옵션:
-1. 승인 - 위 내용으로 티켓 생성
-2. 수정 요청 - 내용 수정 후 다시 확인
-3. 취소 - 티켓 생성 안 함
+  - 승인 (Recommended) - 위 내용으로 티켓 생성
+  - 수정 요청 - 내용 수정 후 다시 확인
+  - 취소 - 티켓 생성 안 함
 ```
 
 **수정 요청 시:**
@@ -481,7 +493,7 @@ Confluence: {page_url}
 **MCP 도구:** `mcp__atlassian__lookupJiraAccountId`
 
 ```
-siteId: {atlassian.cloudId}
+siteId: {mcp.atlassian.cloudId}
 query: {요청자 이메일 또는 이름}
 ```
 
@@ -592,7 +604,7 @@ gh pr view --json url,title,number
 **MCP 도구:** `mcp__atlassian__getTransitionsForJiraIssue`
 
 ```
-siteId: {atlassian.cloudId}
+siteId: {mcp.atlassian.cloudId}
 issueKey: {issue_key}
 ```
 
@@ -601,7 +613,7 @@ issueKey: {issue_key}
 **MCP 도구:** `mcp__atlassian__transitionJiraIssue`
 
 ```
-siteId: {atlassian.cloudId}
+siteId: {mcp.atlassian.cloudId}
 issueKey: {issue_key}
 transitionId: {done_transition_id}
 ```
@@ -622,19 +634,32 @@ transitionId: {done_transition_id}
 
 Confluence와 Slack에서 멘션된 내용을 수집하여 TODO 항목을 추출하고, 개인 문서로 정리합니다.
 
+**설정 파일 활용:**
+- `confluence.watchSpaces` - 멘션 검색할 스페이스
+- `confluence.defaultSpaceKey` - TODO 문서 생성 스페이스
+- `slack.watchChannels` - 멘션 검색할 채널
+- `options.lookbackDays` - 검색 기간
+
 ### 단계별 워크플로우
 
-#### 1. Confluence 멘션 검색
+#### 1. 설정 파일 로드
+
+```
+Read ~/.claude/workflow.json
+→ 없으면 "/workflow init을 먼저 실행하세요" 안내
+```
+
+#### 2. Confluence 멘션 검색
 
 **MCP 도구:** `mcp__atlassian__searchConfluenceUsingCql`
 
 ```
-siteId: {atlassian.cloudId}
-cql: "mention = currentUser() AND lastmodified > now('-7d')"
+siteId: {mcp.atlassian.cloudId}
+cql: "mention = currentUser() AND lastmodified > now('-{options.lookbackDays}d') AND space in ({confluence.watchSpaces})"
 limit: 25
 ```
 
-#### 2. Slack 멘션 검색
+#### 3. Slack 멘션 검색
 
 나를 직접 멘션하거나, 내가 속한 그룹(@here, @channel, 사용자 그룹)을 멘션한 메시지를 검색합니다.
 
@@ -642,12 +667,13 @@ limit: 25
 
 ```
 query: "to:me"
+→ slack.watchChannels 필터링 적용
 limit: 50
 ```
 
 > **참고:** `to:me`는 나를 직접 멘션한 메시지와 내가 속한 그룹 멘션을 모두 포함합니다.
 
-#### 3. 스레드 컨텍스트 수집 (필요 시)
+#### 4. 스레드 컨텍스트 수집 (필요 시)
 
 Slack 메시지가 스레드의 일부인 경우 전체 컨텍스트를 수집:
 
@@ -658,20 +684,20 @@ channel: {channel_id}
 ts: {thread_ts}
 ```
 
-#### 4. Confluence 페이지 내용 분석
+#### 5. Confluence 페이지 내용 분석
 
 각 Confluence 검색 결과에서:
 
 **MCP 도구:** `mcp__atlassian__getConfluencePage`
 
 ```
-siteId: {atlassian.cloudId}
+siteId: {mcp.atlassian.cloudId}
 pageId: {page_id}
 includeBody: true
 bodyFormat: "storage"
 ```
 
-#### 5. TODO 항목 추출
+#### 6. TODO 항목 추출
 
 **Confluence에서:**
 - 직접적인 작업 요청 ("@{user} 확인 부탁드립니다", "@{user} 처리해주세요")
@@ -685,44 +711,41 @@ bodyFormat: "storage"
 - 마감일 언급 ("오늘까지", "내일까지", "이번 주")
 - 긴급 표시 ("긴급", "ASAP", "급함")
 
-#### 6. TODO 목록 선택 (AskUserQuestion)
+#### 7. TODO 목록 선택
 
-추출된 TODO를 사용자에게 제시하고 선택받기:
-
-```
-AskUserQuestion:
-  question: "다음 TODO 항목 중 문서에 포함할 항목을 선택하세요"
-  header: "TODO 선택"
-  multiSelect: true
-  options:
-    - label: "{todo_1_title}"
-      description: "📄 Confluence: {page_title}"
-    - label: "{todo_2_title}"
-      description: "💬 Slack: #{channel_name}"
-    - label: "{todo_3_title}"
-      description: "📄 Confluence: {page_title}"
-    ...
-```
-
-#### 5. 문서 생성 위치 확인 (AskUserQuestion)
+**AskUserQuestion 사용:**
 
 ```
-AskUserQuestion:
-  question: "TODO 문서를 어디에 생성할까요?"
-  header: "위치 선택"
-  multiSelect: false
-  options:
-    - label: "개인 스페이스 (Recommended)"
-      description: "내 개인 Confluence 스페이스에 생성"
-    - label: "특정 스페이스 지정"
-      description: "다른 스페이스를 선택"
+질문: "다음 TODO 항목 중 문서에 포함할 항목을 선택하세요"
+헤더: "TODO 선택"
+다중선택: true
+옵션:
+  - {todo_1_title} - 📄 Confluence: {page_title}
+  - {todo_2_title} - 💬 Slack: #{channel_name}
+  - {todo_3_title} - 📄 Confluence: {page_title}
 ```
 
-#### 6. 문서 미리보기 및 확인 (AskUserQuestion)
+#### 8. 문서 생성 위치 확인
+
+**설정 파일 활용:**
+- `confluence.defaultSpaceKey`가 있으면 기본값으로 제안
+
+**AskUserQuestion 사용:**
+
+```
+질문: "TODO 문서를 어디에 생성할까요?"
+헤더: "위치 선택"
+다중선택: false
+옵션:
+  - 기본 스페이스 ({confluence.defaultSpaceKey}) (Recommended)
+  - 특정 스페이스 지정
+```
+
+#### 9. 문서 미리보기 및 확인
 
 생성할 문서 내용을 먼저 보여주고 확인:
 
-```
+```markdown
 ## 생성할 문서 미리보기
 
 **제목:** {date} TODO
@@ -735,30 +758,28 @@ AskUserQuestion:
 🤖 Created by Claude Code
 ```
 
+**AskUserQuestion 사용:**
+
 ```
-AskUserQuestion:
-  question: "위 내용으로 문서를 생성할까요?"
-  header: "문서 확인"
-  multiSelect: false
-  options:
-    - label: "생성 (Recommended)"
-      description: "위 내용으로 TODO 문서 생성"
-    - label: "수정 필요"
-      description: "내용을 수정하고 다시 확인"
-    - label: "취소"
-      description: "문서 생성 취소"
+질문: "위 내용으로 문서를 생성할까요?"
+헤더: "문서 확인"
+다중선택: false
+옵션:
+  - 생성 (Recommended) - 위 내용으로 TODO 문서 생성
+  - 수정 필요 - 내용을 수정하고 다시 확인
+  - 취소 - 문서 생성 취소
 ```
 
-#### 7. TODO 문서 생성
+#### 10. TODO 문서 생성
 
 **MCP 도구:** `mcp__atlassian__createConfluencePage`
 
 ```
-siteId: {atlassian.cloudId}
-spaceId: {personal_space_id}
+siteId: {mcp.atlassian.cloudId}
+spaceId: {confluence.defaultSpaceId}
 title: "{YYYY-MM-DD} TODO"
 status: "current"
-parentPageId: null (또는 지정된 상위 페이지)
+parentPageId: {confluence.defaultParentPageId}
 bodyFormat: "atlas_doc_format"
 bodyValue: (아래 템플릿 참조)
 ```
@@ -808,53 +829,52 @@ bodyValue: (아래 템플릿 참조)
 
 ## /workflow setup
 
-MCP 연결 상태를 확인하고, 선택적 기본값을 설정합니다.
+기존 설정을 변경하거나 특정 항목만 재설정합니다.
+
+> **참고:** 최초 설정은 `/workflow init`을 사용하세요. `/workflow setup`은 기존 설정을 수정할 때 사용합니다.
+
+### `/workflow init` vs `/workflow setup` 차이
+
+| 항목 | `/workflow init` | `/workflow setup` |
+|------|------------------|-------------------|
+| 용도 | 최초 설정 (전체) | 설정 변경 (부분) |
+| MCP 연결 | 전체 확인 + 설치 가이드 | 연결 상태만 확인 |
+| 설정 범위 | 모든 앱 설정 | 선택한 항목만 |
+| workflow.json | 새로 생성 | 기존 파일 수정 |
 
 ### 단계별 안내:
 
-1. **MCP 연결 확인**
+#### 1. 현재 설정 확인
 
-   **Atlassian 연결:**
-   ```
-   mcp__atlassian__getAccessibleAtlassianResources
-   mcp__atlassian__atlassianUserInfo
-   ```
+```
+Read ~/.claude/workflow.json
+→ 현재 설정 내용 표시
+```
 
-   **Slack 연결:**
-   ```
-   mcp__slack__channels_list
-   ```
+#### 2. 변경할 항목 선택
 
-   **Google Calendar 연결:**
-   ```
-   mcp__google-calendar__list-calendars
-   ```
+**AskUserQuestion 사용:**
 
-2. **Confluence Space 선택 (선택적 기본값)**
+```
+질문: "어떤 설정을 변경하시겠습니까?"
+헤더: "설정 변경"
+다중선택: true
+옵션:
+  - Slack 채널 설정
+  - Confluence 스페이스 설정
+  - Jira 프로젝트 설정
+  - GitHub 저장소 설정
+  - Calendar 설정
+  - 검색 기간 등 옵션
+```
 
-   **MCP 도구:** `mcp__atlassian__getConfluenceSpaces`
+#### 3. 선택한 항목 재설정
 
-   - 사용 가능한 Space 목록 표시
-   - 작업 문서를 생성할 기본 Space 선택
+각 항목에 대해 `/workflow init`과 동일한 설정 과정 진행
 
-3. **Confluence Parent Page 선택 (선택적)**
+#### 4. 설정 파일 업데이트
 
-   **MCP 도구:** `mcp__atlassian__getPagesInConfluenceSpace`
-
-   - 선택된 Space의 페이지 목록 표시
-   - 작업 문서를 생성할 상위 페이지 선택
-
-4. **선택적 설정 파일 생성**
-
-   기본값을 저장하고 싶으면 `~/.claude/workflow.json` 생성:
-   ```json
-   {
-     "confluence": {
-       "defaultSpaceKey": "선택한_SPACE_KEY",
-       "defaultParentPageId": "선택한_PAGE_ID"
-     }
-   }
-   ```
+기존 `~/.claude/workflow.json` 파일에서 선택한 항목만 업데이트
 
 ---
 
