@@ -57,6 +57,7 @@ description: Use when managing work tasks across Slack mentions, Confluence docu
 
 | 커맨드 | 설명 |
 |--------|------|
+| `/workflow init` | **초기 설정** - MCP 연결 확인 및 외부 앱 설정 (최초 1회) |
 | `/workflow` | 전체 워크플로우 실행 (수집 → 분석 → 계획 → 실행) |
 | `/workflow check` | 새 멘션만 확인 (티켓 생성 안 함) |
 | `/workflow todo` | Confluence + Slack 멘션에서 TODO 추출 → 선택 → 개인 문서 생성 |
