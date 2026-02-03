@@ -1,6 +1,6 @@
 ---
 name: workflow-manager
-description: Use when managing work tasks across Slack mentions, Confluence documents, Jira tickets, and GitHub PRs. Triggers on /workflow command to collect mentions, create TODOs, generate work plans, and sync progress across platforms.
+description: Use when managing work tasks across Slack mentions, Confluence documents, Jira tickets, and GitHub PRs. Triggers on /workflow-manager command to show available commands menu.
 ---
 
 # Workflow Manager
@@ -9,7 +9,7 @@ description: Use when managing work tasks across Slack mentions, Confluence docu
 
 ## 설정 파일
 
-`/workflow init` 명령어로 생성되는 `~/.claude/workflow.json` 파일을 사용합니다.
+`/workflow-manager init` 명령어로 생성되는 `~/.claude/workflow.json` 파일을 사용합니다.
 
 ### 설정 파일 구조
 
@@ -59,18 +59,42 @@ description: Use when managing work tasks across Slack mentions, Confluence docu
 
 | 커맨드 | 설명 |
 |--------|------|
-| `/workflow init` | **초기 설정** - MCP 연결 확인 및 외부 앱 설정 (최초 1회) |
-| `/workflow` | 전체 워크플로우 실행 (수집 → 분석 → 계획 → 실행) |
-| `/workflow check` | 새 멘션만 확인 (티켓 생성 안 함) |
-| `/workflow todo` | Confluence + Slack 멘션에서 TODO 추출 → 선택 → 개인 문서 생성 |
-| `/workflow complete` | 현재 작업 완료 처리 (Jira 전환, Confluence 업데이트) |
-| `/workflow setup` | MCP 연결 확인 및 선택적 기본값 설정 |
-| `/workflow status` | 진행 중인 작업 상태 확인 |
+| `/workflow-manager` | **명령어 메뉴** - 사용 가능한 명령어 안내 |
+| `/workflow-manager init` | **초기 설정** - MCP 연결 확인 및 외부 앱 설정 (최초 1회) |
+| `/workflow-manager run` | **전체 워크플로우 실행** (수집 → 분석 → 계획 → 실행) |
+| `/workflow-manager check` | 새 멘션만 확인 (티켓 생성 안 함) |
+| `/workflow-manager todo` | Confluence + Slack 멘션에서 TODO 추출 → 선택 → 개인 문서 생성 |
+| `/workflow-manager complete` | 현재 작업 완료 처리 (Jira 전환, Confluence 업데이트) |
+| `/workflow-manager setup` | MCP 연결 확인 및 선택적 기본값 설정 |
+| `/workflow-manager status` | 진행 중인 작업 상태 확인 |
+
+---
+
+## /workflow-manager (명령어 메뉴)
+
+`/workflow-manager`를 인자 없이 실행하면 다음 메뉴를 표시합니다:
+
+```markdown
+## Workflow Manager
+
+무엇을 하시겠습니까?
+
+| 명령어 | 설명 |
+|--------|------|
+| `/workflow-manager check` | 새 멘션 확인 (Slack, Confluence) |
+| `/workflow-manager todo` | TODO 추출 → Confluence 문서 생성 |
+| `/workflow-manager run` | 전체 워크플로우 실행 (수집 → 분석 → 계획 → 실행) |
+| `/workflow-manager complete` | 현재 작업 완료 처리 |
+| `/workflow-manager status` | 진행 중인 작업 상태 확인 |
+| `/workflow-manager setup` | 설정 변경 |
+```
+
+---
 
 ## 워크플로우 개요
 
 ```
-/workflow 실행
+/workflow-manager run 실행
     │
     ▼
 Phase 1: 수집 (Collect)
@@ -98,7 +122,7 @@ Phase 4: 실행 (Execute) - 승인 시
 └─ (선택) 캘린더 작업 블록 생성
     │
     ▼
-Phase 5: 완료 (/workflow complete)
+Phase 5: 완료 (/workflow-manager complete)
 ├─ Confluence 문서 업데이트
 └─ Jira 티켓 상태 전환
 ```
@@ -112,7 +136,7 @@ Phase 5: 완료 (/workflow complete)
 **설정 파일 확인:**
 ```
 Read ~/.claude/workflow.json
-→ 없으면 "/workflow init을 먼저 실행하세요" 안내
+→ 없으면 "/workflow-manager init을 먼저 실행하세요" 안내
 ```
 
 설정에서 다음 값 추출:
@@ -566,7 +590,7 @@ end: (start + 2시간)
 
 ---
 
-## Phase 5: 완료 (/workflow complete)
+## Phase 5: 완료 (/workflow-manager complete)
 
 ### 5.1 현재 작업 확인
 
@@ -620,7 +644,7 @@ transitionId: {done_transition_id}
 
 ---
 
-## /workflow check
+## /workflow-manager check
 
 멘션만 확인하고 티켓 생성은 하지 않습니다.
 
@@ -630,7 +654,7 @@ transitionId: {done_transition_id}
 
 ---
 
-## /workflow todo
+## /workflow-manager todo
 
 Confluence와 Slack에서 멘션된 내용을 수집하여 TODO 항목을 추출하고, 개인 문서로 정리합니다.
 
@@ -646,7 +670,7 @@ Confluence와 Slack에서 멘션된 내용을 수집하여 TODO 항목을 추출
 
 ```
 Read ~/.claude/workflow.json
-→ 없으면 "/workflow init을 먼저 실행하세요" 안내
+→ 없으면 "/workflow-manager init을 먼저 실행하세요" 안내
 ```
 
 #### 2. Confluence 멘션 검색
@@ -827,16 +851,16 @@ bodyValue: (아래 템플릿 참조)
 
 ---
 
-## /workflow setup
+## /workflow-manager setup
 
 기존 설정을 변경하거나 특정 항목만 재설정합니다.
 
-> **참고:** 최초 설정은 `/workflow init`을 사용하세요. `/workflow setup`은 기존 설정을 수정할 때 사용합니다.
+> **참고:** 최초 설정은 `/workflow-manager init`을 사용하세요. `/workflow-manager setup`은 기존 설정을 수정할 때 사용합니다.
 
-### `/workflow init` vs `/workflow setup` 차이
+### `/workflow-manager init` vs `/workflow-manager setup` 차이
 
-| 항목 | `/workflow init` | `/workflow setup` |
-|------|------------------|-------------------|
+| 항목 | `/workflow-manager init` | `/workflow-manager setup` |
+|------|--------------------------|---------------------------|
 | 용도 | 최초 설정 (전체) | 설정 변경 (부분) |
 | MCP 연결 | 전체 확인 + 설치 가이드 | 연결 상태만 확인 |
 | 설정 범위 | 모든 앱 설정 | 선택한 항목만 |
@@ -870,7 +894,7 @@ Read ~/.claude/workflow.json
 
 #### 3. 선택한 항목 재설정
 
-각 항목에 대해 `/workflow init`과 동일한 설정 과정 진행
+각 항목에 대해 `/workflow-manager init`과 동일한 설정 과정 진행
 
 #### 4. 설정 파일 업데이트
 
@@ -878,7 +902,7 @@ Read ~/.claude/workflow.json
 
 ---
 
-## /workflow status
+## /workflow-manager status
 
 진행 중인 작업 상태를 확인합니다.
 
@@ -924,7 +948,7 @@ MCP 연결을 확인할 수 없습니다.
 - Slack: 연결 안 됨
 
 MCP 서버 설정을 확인하세요.
-`/workflow setup`으로 연결 상태를 점검할 수 있습니다.
+`/workflow-manager setup`으로 연결 상태를 점검할 수 있습니다.
 ```
 
 ### 매핑 실패 시
