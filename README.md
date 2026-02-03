@@ -22,8 +22,11 @@ Claude Code 플러그인으로 Slack, Confluence, Jira, GitHub, Google Calendar�
 ## 설치
 
 ```bash
-# Claude Code에서
-/install-plugin https://github.com/featuring-lonnie/workflow-manager-plugin
+# 마켓플레이스 추가
+/plugin marketplace add featuring-lonnie/lonnie-marketplace
+
+# 플러그인 설치
+/plugin install workflow-manager@lonnie-marketplace
 ```
 
 ## 사용법
@@ -32,17 +35,18 @@ Claude Code 플러그인으로 Slack, Confluence, Jira, GitHub, Google Calendar�
 
 | 커맨드 | 설명 |
 |--------|------|
-| `/workflow` | 전체 워크플로우 실행 (수집 → 분석 → 계획 → 실행) |
-| `/workflow check` | 새 멘션만 확인 (티켓 생성 안 함) |
-| `/workflow todo` | Confluence + Slack 멘션에서 TODO 추출 → 개인 문서 생성 |
-| `/workflow complete` | 현재 작업 완료 처리 |
-| `/workflow setup` | MCP 연결 확인 및 기본값 설정 |
-| `/workflow status` | 진행 중인 작업 상태 확인 |
+| `/workflow-manager init` | 초기 설정 - MCP 연결 확인 및 외부 앱 설정 (최초 1회) |
+| `/workflow-manager` | 전체 워크플로우 실행 (수집 → 분석 → 계획 → 실행) |
+| `/workflow-manager check` | 새 멘션만 확인 (티켓 생성 안 함) |
+| `/workflow-manager todo` | Confluence + Slack 멘션에서 TODO 추출 → 개인 문서 생성 |
+| `/workflow-manager complete` | 현재 작업 완료 처리 |
+| `/workflow-manager setup` | MCP 연결 확인 및 기본값 설정 |
+| `/workflow-manager status` | 진행 중인 작업 상태 확인 |
 
 ### 워크플로우
 
 ```
-/workflow 실행
+/workflow-manager 실행
     │
     ▼
 Phase 1: 수집 (Collect)
@@ -69,7 +73,7 @@ Phase 4: 실행 (Execute)
 └─ (선택) 캘린더 작업 블록 생성
     │
     ▼
-Phase 5: 완료 (/workflow complete)
+Phase 5: 완료 (/workflow-manager complete)
 ├─ Confluence 문서 업데이트
 └─ Jira 티켓 상태 전환
 ```
