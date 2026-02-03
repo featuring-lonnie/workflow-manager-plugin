@@ -7,48 +7,50 @@ description: Use when managing work tasks across Slack mentions, Confluence docu
 
 통합 작업 관리 워크플로우 - Slack, Confluence, Jira, GitHub, Google Calendar를 연동하여 작업을 수집하고 관리합니다.
 
-## MCP 연동
+## 설정 파일
 
-별도 설정 파일 없이 MCP 서버에서 직접 정보를 조회합니다.
+`/workflow init` 명령어로 생성되는 `~/.claude/workflow.json` 파일을 사용합니다.
 
-### 시작 시 조회할 정보
-
-1. **Atlassian 리소스**
-   ```
-   mcp__atlassian__getAccessibleAtlassianResources
-   → cloudId, siteUrl 획득
-   ```
-
-2. **현재 사용자 정보**
-   ```
-   mcp__atlassian__atlassianUserInfo
-   → accountId, displayName, email 획득
-   ```
-
-3. **Slack 채널 목록** (멘션 검색용)
-   ```
-   mcp__slack__channels_list
-   → 채널 ID 목록 획득
-   ```
-
-4. **Google Calendar 목록**
-   ```
-   mcp__google-calendar__list-calendars
-   → calendarId, account 획득
-   ```
-
-### 선택적 설정 (옵션)
-
-`~/.claude/workflow.json`으로 기본값 오버라이드 가능:
+### 설정 파일 구조
 
 ```json
 {
+  "slack": {
+    "watchChannels": ["C01234567", "C89012345"],
+    "includeDM": true
+  },
   "confluence": {
     "defaultSpaceKey": "MYSPACE",
-    "defaultParentPageId": "123456789"
+    "defaultSpaceId": "123456",
+    "defaultParentPageId": null,
+    "watchSpaces": ["MYSPACE", "TEAM"]
+  },
+  "jira": {
+    "defaultProjectKey": "PROJ",
+    "defaultIssueType": "Task",
+    "watchProjects": ["PROJ", "DEV"],
+    "repoMapping": {
+      "github.com/company/repo": "PROJ"
+    }
+  },
+  "github": {
+    "watchRepos": ["company/repo1", "company/repo2"],
+    "includePRReviews": true
+  },
+  "calendar": {
+    "defaultCalendarId": "primary",
+    "checkConflictCalendars": ["primary", "work@group.calendar.google.com"]
   },
   "options": {
-    "lookbackDays": 7
+    "lookbackDays": 7,
+    "autoCreateTicket": true,
+    "autoCreateCalendarBlock": false
+  },
+  "mcp": {
+    "atlassian": {
+      "cloudId": "{cloudId}",
+      "siteUrl": "{siteUrl}"
+    }
   }
 }
 ```
@@ -105,12 +107,30 @@ Phase 5: 완료 (/workflow complete)
 
 ## Phase 1: 수집 (Collect)
 
+### 1.0 설정 파일 로드
+
+**설정 파일 확인:**
+```
+Read ~/.claude/workflow.json
+→ 없으면 "/workflow init을 먼저 실행하세요" 안내
+```
+
+설정에서 다음 값 추출:
+- `slack.watchChannels` - 모니터링할 Slack 채널
+- `slack.includeDM` - DM 포함 여부
+- `confluence.watchSpaces` - 모니터링할 Confluence 스페이스
+- `jira.watchProjects` - 모니터링할 Jira 프로젝트
+- `github.watchRepos` - 모니터링할 GitHub 저장소
+- `github.includePRReviews` - PR 리뷰 포함 여부
+- `calendar.checkConflictCalendars` - 일정 충돌 확인 캘린더
+- `options.lookbackDays` - 멘션 검색 기간
+
 ### 1.1 MCP 연동 정보 조회
 
-**Atlassian 리소스 조회:**
+**Atlassian 정보 (설정 파일에서):**
 ```
-mcp__atlassian__getAccessibleAtlassianResources
-→ cloudId 획득
+mcp.atlassian.cloudId
+mcp.atlassian.siteUrl
 ```
 
 **현재 사용자 정보 조회:**
@@ -119,23 +139,22 @@ mcp__atlassian__atlassianUserInfo
 → accountId (Confluence 멘션 검색용)
 ```
 
-**선택적 설정 파일 확인:**
-```
-Read ~/.claude/workflow.json (없으면 기본값 사용)
-```
-
 ### 1.2 Slack 멘션 검색
 
 **MCP 도구:** `mcp__slack__conversations_search_messages`
 
-```
-query: "to:me" 또는 사용자 이름으로 검색
-```
+**설정 파일 활용:**
+- `slack.watchChannels`가 설정된 경우: 해당 채널에서만 검색
+- `slack.includeDM`이 true인 경우: DM도 포함
 
-최근 7일간 (또는 설정된 lookbackDays) 멘션 검색.
+```
+query: "to:me"
+→ watchChannels 필터링 적용
+→ lookbackDays 기간 내 검색
+```
 
 검색 결과에서 각 메시지의:
-- `channel`: 채널 ID
+- `channel`: 채널 ID (watchChannels에 포함된 것만)
 - `ts`: 타임스탬프
 - `text`: 메시지 내용
 - `user`: 보낸 사람
@@ -157,18 +176,53 @@ ts: {thread_ts}
 
 **MCP 도구:** `mcp__atlassian__searchConfluenceUsingCql`
 
+**설정 파일 활용:**
+- `confluence.watchSpaces`가 설정된 경우: 해당 스페이스에서만 검색
+
 ```
-cql: "mention = currentUser() AND lastmodified > now('-{lookbackDays}d')"
-siteId: {atlassian.cloudId}
+cql: "mention = currentUser() AND lastmodified > now('-{lookbackDays}d') AND space in ({watchSpaces})"
+siteId: {mcp.atlassian.cloudId}
 ```
 
-### 1.5 캘린더 일정 확인
+### 1.5 GitHub PR/Issue 검색 (설정된 경우)
+
+**설정 파일 활용:**
+- `github.watchRepos` - 모니터링할 저장소
+- `github.includePRReviews` - PR 리뷰 요청 포함
+
+**MCP 도구:** `mcp__plugin_github_github__search_issues`
+
+```
+q: "is:open mentions:@me repo:{watchRepo}"
+→ 각 watchRepos에 대해 검색
+```
+
+PR 리뷰 요청 검색 (includePRReviews가 true인 경우):
+```
+q: "is:open is:pr review-requested:@me repo:{watchRepo}"
+```
+
+### 1.6 Jira 담당 티켓 확인 (선택)
+
+**설정 파일 활용:**
+- `jira.watchProjects` - 모니터링할 프로젝트
+
+**MCP 도구:** `mcp__atlassian__searchJiraIssuesUsingJql`
+
+```
+jql: "assignee = currentUser() AND status != Done AND project in ({watchProjects})"
+siteId: {mcp.atlassian.cloudId}
+```
+
+### 1.7 캘린더 일정 확인
+
+**설정 파일 활용:**
+- `calendar.checkConflictCalendars` - 충돌 확인 캘린더 목록
 
 **MCP 도구:** `mcp__google-calendar__list-events`
 
 ```
-calendarId: {calendar.id}
-account: {calendar.account}
+calendarId: {각 checkConflictCalendars}
 timeMin: (오늘)
 timeMax: (오늘 + 7일)
 ```
@@ -229,29 +283,39 @@ timeMax: (오늘 + 7일)
 
 ## Phase 3: 계획 (Plan)
 
-### 3.1 Jira 프로젝트 매핑
+### 3.1 Jira 프로젝트 결정
+
+**설정 파일 활용:**
+- `jira.repoMapping` - Git 저장소 → Jira 프로젝트 매핑
+- `jira.defaultProjectKey` - 기본 프로젝트
 
 **현재 Git remote 확인:**
 ```bash
 git remote get-url origin
+→ github.com/company/repo
 ```
 
-**projectMapping에서 매칭:**
-```
-remote URL → projectMapping → Jira Project Key
-```
-
-매핑이 없으면:
-
-**MCP 도구:** `mcp__atlassian__getVisibleJiraProjects`
+**매핑 순서:**
+1. `jira.repoMapping`에서 현재 저장소 매핑 확인
+2. 매핑이 있으면 해당 프로젝트 사용
+3. 매핑이 없으면 `jira.defaultProjectKey` 사용
+4. 둘 다 없으면 사용자에게 선택 요청
 
 ```
-siteId: {atlassian.cloudId}
+if (repoMapping[currentRepo]) {
+  projectKey = repoMapping[currentRepo]
+} else if (defaultProjectKey) {
+  projectKey = defaultProjectKey
+} else {
+  // 사용자에게 프로젝트 선택 요청
+}
 ```
-
-사용자에게 프로젝트 선택 요청
 
 ### 3.2 Confluence 문서 미리보기 및 컨펌 (필수)
+
+**설정 파일 활용:**
+- `confluence.defaultSpaceKey` - 기본 스페이스
+- `confluence.defaultParentPageId` - 기본 상위 페이지
 
 **문서 생성 전 반드시 사용자에게 전체 내용을 보여주고 피드백을 받습니다.**
 
@@ -260,8 +324,8 @@ siteId: {atlassian.cloudId}
 ```markdown
 ## Confluence 문서 미리보기
 
-**Space:** {space_key}
-**상위 페이지:** {parent_page_title}
+**Space:** {confluence.defaultSpaceKey}
+**상위 페이지:** {confluence.defaultParentPageId 또는 "루트"}
 **제목:** [WIP] {작업 제목} - {날짜}
 
 ### 문서 내용
@@ -362,6 +426,12 @@ Confluence: {page_url}
 
 ## Phase 4: 실행 (Execute)
 
+**설정 파일 활용:**
+- `jira.defaultIssueType` - 기본 이슈 타입 (Task, Story, Bug 등)
+- `calendar.defaultCalendarId` - 작업 블록 생성 캘린더
+- `options.autoCreateTicket` - 자동 생성 여부
+- `options.autoCreateCalendarBlock` - 캘린더 블록 자동 생성
+
 ### 4.0 티켓 내용 미리보기 및 피드백 (필수)
 
 **티켓 생성 전 반드시 사용자에게 전체 내용을 보여주고 피드백을 받습니다.**
@@ -371,8 +441,8 @@ Confluence: {page_url}
 ```markdown
 ## Jira 티켓 미리보기
 
-**프로젝트:** {project_key}
-**유형:** Task
+**프로젝트:** {jira.defaultProjectKey 또는 repoMapping에서 결정된 값}
+**유형:** {jira.defaultIssueType}
 **제목:** {작업 제목}
 
 ### 설명
@@ -420,9 +490,9 @@ query: {요청자 이메일 또는 이름}
 **MCP 도구:** `mcp__atlassian__createJiraIssue`
 
 ```
-siteId: {atlassian.cloudId}
-projectKey: {mapped_project_key}
-issueType: {atlassian.defaultIssueType}
+siteId: {mcp.atlassian.cloudId}
+projectKey: {Phase 3.1에서 결정된 프로젝트}
+issueType: {jira.defaultIssueType}
 summary: {작업 제목}
 description: (아래 템플릿 참조)
 ```
@@ -458,18 +528,29 @@ Jira 티켓 링크 추가:
 <tr><td>Jira 티켓</td><td><a href="{jira_issue_url}">{issue_key}</a></td></tr>
 ```
 
-### 4.3 캘린더 작업 블록 생성 (선택)
+### 4.3 캘린더 작업 블록 생성
+
+**설정 파일 활용:**
+- `calendar.defaultCalendarId` - 작업 블록 생성 캘린더
+- `options.autoCreateCalendarBlock` - 자동 생성 여부
+
+**자동 생성 조건:**
+- `options.autoCreateCalendarBlock`이 true인 경우: 자동 생성
+- false인 경우: 사용자에게 생성 여부 확인
 
 **MCP 도구:** `mcp__google-calendar__create-event`
 
 ```
-calendarId: {calendar.id}
-account: {calendar.account}
+calendarId: {calendar.defaultCalendarId}
 summary: "[작업] {작업 제목}"
 description: "Jira: {issue_key}\nConfluence: {page_url}"
 start: (사용자 지정 또는 다음 가용 시간)
 end: (start + 2시간)
 ```
+
+**일정 충돌 확인:**
+- `calendar.checkConflictCalendars`에 있는 캘린더들의 일정 확인
+- 충돌 시 대체 시간 제안
 
 ---
 
